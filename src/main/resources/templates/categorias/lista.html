@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Categorias')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('admin')}"></nav>
+
+<main class="container py-4">
+    <div th:replace="~{fragments/layout :: alertas}"></div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h1 class="h3 mb-0">Categorias</h1>
+            <p class="text-secondary mb-0">Cada despesa é classificada como Necessidade, Desejo ou Poupança (regra 50-30-20)</p>
+        </div>
+        <a th:href="@{/categorias/novo}" class="btn btn-gc"><i class="bi bi-plus-lg me-1"></i>Nova categoria</a>
+    </div>
+
+    <div class="gc-card overflow-hidden">
+        <div class="table-responsive">
+            <table class="table gc-tabela">
+                <thead><tr><th>Categoria</th><th>Tipo</th><th>Classificação</th><th>Transações</th><th class="text-end">Ações</th></tr></thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(categorias)}"><td colspan="5" class="text-center text-secondary py-4">Nenhuma categoria.</td></tr>
+                <tr th:each="c : ${categorias}">
+                    <td>
+                        <span class="gc-icone me-2" th:style="'width:38px;height:38px;font-size:1rem;background:' + ${c.cor} + '22;color:' + ${c.cor}">
+                            <i class="bi" th:classappend="${c.icone}"></i>
+                        </span>
+                        <span class="fw-semibold" th:text="${c.nome}">nome</span>
+                    </td>
+                    <td><span class="chip" th:classappend="${c.tipo.name() == 'RECEITA'} ? 'bg-verde-suave' : 'bg-vermelho-suave'" th:text="${c.tipo.rotulo}">tipo</span></td>
+                    <td th:text="${c.classificacao.rotulo}">classe</td>
+                    <td th:text="${#lists.size(c.transacoes)}">0</td>
+                    <td class="text-end acoes">
+                        <a th:href="@{/categorias/{id}/editar(id=${c.id})}" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        <form th:replace="~{fragments/layout :: excluir(@{/categorias/{id}/excluir(id=${c.id})}, ${c.nome})}"></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

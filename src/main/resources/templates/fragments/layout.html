@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(titulo)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${titulo} + ' | GranaCerta'">GranaCerta</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💸</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link th:href="@{/css/app.css}" rel="stylesheet">
+</head>
+<body>
+
+<nav th:fragment="navbar(ativo)" class="navbar navbar-expand-lg navbar-dark gc-nav sticky-top">
+    <div class="container">
+        <a class="navbar-brand" th:href="@{/}"><span class="logo"><i class="bi bi-currency-dollar"></i></span>GranaCerta</a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="menu">
+            <ul class="navbar-nav ms-auto gap-1">
+                <li class="nav-item"><a class="nav-link" th:classappend="${ativo == 'usuarios'} ? 'active'" th:href="@{/usuarios}"><i class="bi bi-people me-1"></i>Usuários</a></li>
+                <li class="nav-item"><a class="nav-link" th:classappend="${ativo == 'transacoes'} ? 'active'" th:href="@{/transacoes}"><i class="bi bi-arrow-left-right me-1"></i>Transações</a></li>
+                <li class="nav-item"><a class="nav-link" th:classappend="${ativo == 'metas'} ? 'active'" th:href="@{/metas}"><i class="bi bi-flag me-1"></i>Metas</a></li>
+                <li class="nav-item"><a class="nav-link" th:classappend="${ativo == 'licoes'} ? 'active'" th:href="@{/licoes}"><i class="bi bi-journal-bookmark me-1"></i>Trilha</a></li>
+                <li class="nav-item"><a class="nav-link" th:classappend="${ativo == 'simuladores'} ? 'active'" th:href="@{/simuladores}"><i class="bi bi-calculator me-1"></i>Simuladores</a></li>
+                <li class="nav-item"><a class="nav-link" th:classappend="${ativo == 'ranking'} ? 'active'" th:href="@{/ranking}"><i class="bi bi-trophy me-1"></i>Ranking</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" th:classappend="${ativo == 'admin'} ? 'active'" href="#" data-bs-toggle="dropdown"><i class="bi bi-gear me-1"></i>Cadastros</a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" th:href="@{/categorias}"><i class="bi bi-tags me-2"></i>Categorias</a></li>
+                        <li><a class="dropdown-item" th:href="@{/perguntas}"><i class="bi bi-patch-question me-2"></i>Perguntas do quiz</a></li>
+                        <li><a class="dropdown-item" th:href="@{/tentativas}"><i class="bi bi-clipboard-check me-2"></i>Tentativas</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" th:href="@{/sobre}"><i class="bi bi-info-circle me-2"></i>Sobre o projeto</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div th:fragment="alertas">
+    <div th:if="${sucesso}" class="alert alert-success alert-dismissible fade show border-0 rounded-4 shadow-sm" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i><span th:text="${sucesso}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${erro}" class="alert alert-danger alert-dismissible fade show border-0 rounded-4 shadow-sm" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><span th:text="${erro}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+</div>
+
+<!-- Botão de excluir com confirmação -->
+<form th:fragment="excluir(url, nome)" th:action="${url}" method="post" class="d-inline"
+      th:attr="data-nome=${nome}" onsubmit="return confirm('Excluir &quot;' + this.dataset.nome + '&quot;? Essa ação não pode ser desfeita.');">
+    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir"><i class="bi bi-trash"></i></button>
+</form>
+
+<footer th:fragment="rodape" class="py-4 mt-5 border-top bg-white">
+    <div class="container d-flex flex-column flex-md-row justify-content-between gap-2">
+        <span><strong>GranaCerta</strong> · Educação financeira para jovens · Projeto A3 Spring Boot</span>
+        <span>Conteúdo inspirado no <a href="https://www.bcb.gov.br/meubc/faqs" target="_blank" rel="noopener">Meu BC (Banco Central do Brasil)</a></span>
+    </div>
+</footer>
+
+<th:block th:fragment="scripts">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</th:block>
+
+</body>
+</html>

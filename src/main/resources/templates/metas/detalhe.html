@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${meta.titulo})}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('metas')}"></nav>
+
+<main class="container py-4" style="max-width: 900px">
+    <div th:replace="~{fragments/layout :: alertas}"></div>
+    <a th:href="@{/metas}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Todas as metas</a>
+
+    <div class="gc-card p-4 mt-2 mb-4">
+        <div class="d-flex flex-wrap gap-4 align-items-center">
+            <span style="font-size: 4rem" th:text="${meta.emoji}">🎯</span>
+            <div class="flex-grow-1">
+                <h1 class="h3 mb-1" th:text="${meta.titulo}">Meta</h1>
+                <p class="text-secondary mb-2" th:text="${meta.descricao}">descrição</p>
+                <a th:href="@{/usuarios/{id}(id=${meta.usuario.id})}" class="chip bg-roxo-suave text-decoration-none" th:text="${meta.usuario.avatar} + ' ' + ${meta.usuario.nome}">dono</a>
+            </div>
+            <div class="d-flex gap-2 acoes">
+                <a th:href="@{/transacoes/novo(usuarioId=${meta.usuario.id}, metaId=${meta.id})}" class="btn btn-gc-verde"><i class="bi bi-piggy-bank me-1"></i>Depositar</a>
+                <a th:href="@{/metas/{id}/editar(id=${meta.id})}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                <form th:replace="~{fragments/layout :: excluir(@{/metas/{id}/excluir(id=${meta.id})}, ${meta.titulo})}"></form>
+            </div>
+        </div>
+
+        <div class="progress mt-4" style="height: 16px"><div class="progress-bar" th:style="'width:' + ${meta.percentual} + '%'"></div></div>
+        <div class="row text-center mt-4 g-3">
+            <div class="col-6 col-md-3"><div class="text-secondary small">Juntado</div><div class="fs-5 fw-bold text-verde" th:text="${@fmt.moeda(meta.valorAtual)}">R$</div></div>
+            <div class="col-6 col-md-3"><div class="text-secondary small">Objetivo</div><div class="fs-5 fw-bold" th:text="${@fmt.moeda(meta.valorAlvo)}">R$</div></div>
+            <div class="col-6 col-md-3"><div class="text-secondary small">Prazo</div><div class="fs-5 fw-bold" th:text="${@fmt.data(meta.prazo)}">data</div>
+                <small class="text-secondary" th:text="${meta.diasRestantes >= 0} ? ${meta.diasRestantes} + ' dias restantes' : 'vencido'"></small></div>
+            <div class="col-6 col-md-3"><div class="text-secondary small">Guardar por mês</div><div class="fs-5 fw-bold text-roxo" th:text="${@fmt.moeda(meta.aporteMensalSugerido)}">R$</div></div>
+        </div>
+        <div th:if="${meta.concluida}" class="alert alert-success rounded-4 mt-4 mb-0">🎉 Meta concluída! Parabéns pela disciplina.</div>
+    </div>
+
+    <div class="gc-card overflow-hidden">
+        <div class="p-3 border-bottom fw-semibold">Depósitos nesta meta</div>
+        <div class="table-responsive">
+            <table class="table gc-tabela">
+                <thead><tr><th>Data</th><th>Descrição</th><th class="text-end">Valor</th><th class="text-end">Ações</th></tr></thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(meta.aportes)}"><td colspan="4" class="text-center text-secondary py-4">Nenhum depósito ainda.</td></tr>
+                <tr th:each="t : ${meta.aportes}">
+                    <td class="text-secondary small" th:text="${@fmt.data(t.data)}">data</td>
+                    <td th:text="${t.descricao}">desc</td>
+                    <td class="text-end fw-semibold text-verde" th:text="${@fmt.moeda(t.valor)}">R$</td>
+                    <td class="text-end"><a th:href="@{/transacoes/{id}/editar(id=${t.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

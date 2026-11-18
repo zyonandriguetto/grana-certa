@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Perguntas')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('admin')}"></nav>
+
+<main class="container py-4">
+    <div th:replace="~{fragments/layout :: alertas}"></div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h1 class="h3 mb-0">Perguntas do quiz</h1>
+            <p class="text-secondary mb-0">Banco de questões de cada lição</p>
+        </div>
+        <div class="d-flex gap-2">
+            <form th:action="@{/perguntas}" method="get">
+                <select name="licaoId" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todas as lições</option>
+                    <option th:each="l : ${licoes}" th:value="${l.id}" th:text="${l.ordem} + '. ' + ${l.titulo}" th:selected="${l.id == licaoId}"></option>
+                </select>
+            </form>
+            <a th:href="@{/perguntas/novo(licaoId=${licaoId})}" class="btn btn-gc text-nowrap"><i class="bi bi-plus-lg me-1"></i>Nova</a>
+        </div>
+    </div>
+
+    <div class="gc-card overflow-hidden">
+        <div class="table-responsive">
+            <table class="table gc-tabela">
+                <thead><tr><th>Lição</th><th>Pergunta</th><th>Resposta correta</th><th class="text-end">Ações</th></tr></thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(perguntas)}"><td colspan="4" class="text-center text-secondary py-4">Nenhuma pergunta.</td></tr>
+                <tr th:each="p : ${perguntas}">
+                    <td class="small text-secondary" style="min-width: 160px" th:text="${p.licao.ordem} + '. ' + ${p.licao.titulo}">lição</td>
+                    <td th:text="${p.enunciado}">pergunta</td>
+                    <td><span class="chip bg-verde-suave" th:text="${p.correta}">A</span> <small th:text="${p.textoCorreto}">texto</small></td>
+                    <td class="text-end acoes">
+                        <a th:href="@{/perguntas/{id}/editar(id=${p.id})}" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        <form th:replace="~{fragments/layout :: excluir(@{/perguntas/{id}/excluir(id=${p.id})}, 'esta pergunta')}"></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Tentativa')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('admin')}"></nav>
+
+<main class="container py-4" style="max-width: 720px">
+    <a th:href="@{/tentativas}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Voltar</a>
+    <h1 class="h3 mt-2 mb-4" th:text="${tentativa.id == null} ? 'Nova tentativa' : 'Editar tentativa'">Tentativa</h1>
+
+    <form th:action="@{/tentativas}" th:object="${tentativa}" method="post" class="gc-card p-4" novalidate>
+        <input type="hidden" th:field="*{id}">
+        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger rounded-4">
+            <div th:each="e : ${#fields.globalErrors()}" th:text="${e}">erro</div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label" for="usuarioId">Usuário</label>
+                <select class="form-select" id="usuarioId" name="usuarioId" required>
+                    <option value="">Escolha...</option>
+                    <option th:each="u : ${usuarios}" th:value="${u.id}" th:text="${u.avatar} + ' ' + ${u.nome}" th:selected="${u.id == usuarioId}"></option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="licaoId">Lição</label>
+                <select class="form-select" id="licaoId" name="licaoId" required>
+                    <option value="">Escolha...</option>
+                    <option th:each="l : ${licoes}" th:value="${l.id}" th:text="${l.ordem} + '. ' + ${l.titulo}" th:selected="${l.id == licaoId}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="acertos">Acertos</label>
+                <input type="number" min="0" class="form-control" th:field="*{acertos}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{acertos}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="totalPerguntas">Total de perguntas</label>
+                <input type="number" min="1" class="form-control" th:field="*{totalPerguntas}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{totalPerguntas}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="dataHora">Data e hora</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHora}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{dataHora}"></div>
+            </div>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-gc"><i class="bi bi-check2 me-1"></i>Salvar</button>
+            <a th:href="@{/tentativas}" class="btn btn-light">Cancelar</a>
+        </div>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

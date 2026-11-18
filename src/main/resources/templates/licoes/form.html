@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Lição')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('licoes')}"></nav>
+
+<main class="container py-4" style="max-width: 860px">
+    <a th:href="@{/licoes}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Voltar</a>
+    <h1 class="h3 mt-2 mb-4" th:text="${licao.id == null} ? 'Nova lição' : 'Editar lição'">Lição</h1>
+
+    <form th:action="@{/licoes}" th:object="${licao}" method="post" class="gc-card p-4" novalidate>
+        <input type="hidden" th:field="*{id}">
+        <div class="row g-3">
+            <div class="col-md-9">
+                <label class="form-label" for="titulo">Título</label>
+                <input type="text" class="form-control" th:field="*{titulo}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{titulo}"></div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="ordem">Ordem na trilha</label>
+                <input type="number" min="1" class="form-control" th:field="*{ordem}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{ordem}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="tema">Tema</label>
+                <input type="text" class="form-control" th:field="*{tema}" th:errorclass="is-invalid" placeholder="Ex.: Crédito">
+                <div class="invalid-feedback" th:errors="*{tema}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="nivel">Nível</label>
+                <select class="form-select" th:field="*{nivel}" th:errorclass="is-invalid">
+                    <option value="">Escolha...</option>
+                    <option th:each="n : ${niveis}" th:value="${n}" th:text="${n.rotulo}"></option>
+                </select>
+                <div class="invalid-feedback" th:errors="*{nivel}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="icone">Ícone</label>
+                <input type="text" class="form-control" th:field="*{icone}" placeholder="bi-book">
+            </div>
+            <div class="col-md-12">
+                <label class="form-label" for="resumo">Resumo</label>
+                <input type="text" class="form-control" th:field="*{resumo}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{resumo}"></div>
+            </div>
+            <div class="col-md-12">
+                <label class="form-label" for="conteudo">Conteúdo</label>
+                <textarea class="form-control" rows="12" th:field="*{conteudo}" th:errorclass="is-invalid"></textarea>
+                <div class="invalid-feedback" th:errors="*{conteudo}"></div>
+                <div class="form-text">Separe os parágrafos com uma linha em branco.</div>
+            </div>
+            <div class="col-md-12">
+                <label class="form-label" for="fonte">Fonte (link)</label>
+                <input type="url" class="form-control" th:field="*{fonte}" placeholder="https://www.bcb.gov.br/meubc/faqs">
+            </div>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-gc"><i class="bi bi-check2 me-1"></i>Salvar</button>
+            <a th:href="@{/licoes}" class="btn btn-light">Cancelar</a>
+        </div>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

@@ -1,0 +1,11 @@
+package br.com.granacerta.repository;
+
+import br.com.granacerta.model.Meta;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface MetaRepository extends JpaRepository<Meta, Long> {
+    List<Meta> findAllByOrderByPrazoAsc();
+    List<Meta> findByUsuarioIdOrderByPrazoAsc(Long usuarioId);
+}

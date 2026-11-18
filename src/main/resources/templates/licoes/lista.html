@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Trilha de aprendizado')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('licoes')}"></nav>
+
+<main class="container py-4">
+    <div th:replace="~{fragments/layout :: alertas}"></div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h1 class="h3 mb-0">Trilha de aprendizado</h1>
+            <p class="text-secondary mb-0">Lições curtas baseadas nos temas do Meu BC, cada uma com um quiz</p>
+        </div>
+        <a th:href="@{/licoes/novo}" class="btn btn-gc"><i class="bi bi-plus-lg me-1"></i>Nova lição</a>
+    </div>
+
+    <div th:if="${#lists.isEmpty(licoes)}" class="gc-card p-5 text-center text-secondary">Nenhuma lição cadastrada.</div>
+
+    <div class="d-flex flex-column gap-3">
+        <div th:each="l : ${licoes}" class="gc-card gc-card-hover p-4">
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+                <span class="licao-icone bg-roxo-suave"><i class="bi" th:classappend="${l.icone}"></i></span>
+                <div class="flex-grow-1" style="min-width: 220px">
+                    <div class="d-flex gap-2 align-items-center mb-1">
+                        <small class="text-secondary fw-semibold" th:text="'Lição ' + ${l.ordem} + ' · ' + ${l.tema}">tema</small>
+                        <span class="chip" th:classappend="${l.nivel.name() == 'INICIANTE'} ? 'bg-verde-suave' : (${l.nivel.name() == 'INTERMEDIARIO'} ? 'bg-amarelo-suave' : 'bg-vermelho-suave')" th:text="${l.nivel.rotulo}">nível</span>
+                    </div>
+                    <a th:href="@{/licoes/{id}(id=${l.id})}" class="h5 fw-bold text-decoration-none text-reset" th:text="${l.titulo}">título</a>
+                    <p class="text-secondary mb-0 small" th:text="${l.resumo}">resumo</p>
+                </div>
+                <div class="text-center px-3">
+                    <div class="fw-bold" th:text="${#lists.size(l.perguntas)}">0</div>
+                    <small class="text-secondary">perguntas</small>
+                </div>
+                <div class="d-flex gap-2 acoes">
+                    <a th:href="@{/licoes/{id}(id=${l.id})}" class="btn btn-gc"><i class="bi bi-book me-1"></i>Estudar</a>
+                    <a th:href="@{/perguntas(licaoId=${l.id})}" class="btn btn-outline-secondary" title="Perguntas"><i class="bi bi-patch-question"></i></a>
+                    <a th:href="@{/licoes/{id}/editar(id=${l.id})}" class="btn btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                    <form th:replace="~{fragments/layout :: excluir(@{/licoes/{id}/excluir(id=${l.id})}, ${l.titulo})}"></form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

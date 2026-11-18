@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Simuladores')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('simuladores')}"></nav>
+
+<main class="container py-4">
+    <h1 class="h3 mb-1">Simuladores</h1>
+    <p class="text-secondary mb-4">Os juros podem trabalhar a seu favor ou contra você. Veja em números.</p>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <a th:href="@{/simuladores/juros-compostos}" class="text-decoration-none text-reset">
+                <div class="gc-card gc-card-hover p-4 h-100">
+                    <span class="gc-icone bg-verde-suave mb-3"><i class="bi bi-graph-up-arrow"></i></span>
+                    <h2 class="h5">Juros compostos</h2>
+                    <p class="text-secondary mb-0">Quanto vira o seu dinheiro guardando um pouco todo mês? Descubra o poder do tempo.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a th:href="@{/simuladores/cartao-rotativo}" class="text-decoration-none text-reset">
+                <div class="gc-card gc-card-hover p-4 h-100">
+                    <span class="gc-icone bg-vermelho-suave mb-3"><i class="bi bi-credit-card"></i></span>
+                    <h2 class="h5">Rotativo do cartão</h2>
+                    <p class="text-secondary mb-0">O que acontece com uma fatura que não foi paga, com e sem o teto da Lei 14.690/2023.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a th:href="@{/simuladores/parcelado-ou-avista}" class="text-decoration-none text-reset">
+                <div class="gc-card gc-card-hover p-4 h-100">
+                    <span class="gc-icone bg-amarelo-suave mb-3"><i class="bi bi-bag-check"></i></span>
+                    <h2 class="h5">À vista ou parcelado?</h2>
+                    <p class="text-secondary mb-0">Calcule os juros escondidos quando a loja dá desconto à vista.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

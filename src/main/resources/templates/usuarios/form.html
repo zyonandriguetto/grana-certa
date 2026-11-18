@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${usuario.id == null} ? 'Novo usuário' : 'Editar usuário')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('usuarios')}"></nav>
+
+<main class="container py-4" style="max-width: 720px">
+    <a th:href="@{/usuarios}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Voltar</a>
+    <h1 class="h3 mt-2 mb-4" th:text="${usuario.id == null} ? 'Criar perfil' : 'Editar perfil'">Usuário</h1>
+
+    <form th:action="@{/usuarios}" th:object="${usuario}" method="post" class="gc-card p-4" novalidate>
+        <input type="hidden" th:field="*{id}">
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label class="form-label" for="nome">Nome</label>
+                <input type="text" class="form-control" th:field="*{nome}" th:errorclass="is-invalid" placeholder="Como você se chama?">
+                <div class="invalid-feedback" th:errors="*{nome}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="avatar">Avatar</label>
+                <select class="form-select" th:field="*{avatar}">
+                    <option th:each="a : ${ {'🙂','🦊','🐼','🦁','🐯','🐸','🐧','🦄','🐙','🚀','🎮','⚽'} }" th:value="${a}" th:text="${a}"></option>
+                </select>
+            </div>
+            <div class="col-md-12">
+                <label class="form-label" for="email">E-mail</label>
+                <input type="email" class="form-control" th:field="*{email}" th:errorclass="is-invalid" placeholder="voce@email.com">
+                <div class="invalid-feedback" th:errors="*{email}"></div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="dataNascimento">Data de nascimento</label>
+                <input type="date" class="form-control" th:field="*{dataNascimento}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{dataNascimento}"></div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="rendaMensal">Renda ou mesada mensal (R$)</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{rendaMensal}" th:errorclass="is-invalid" placeholder="0,00">
+                <div class="invalid-feedback" th:errors="*{rendaMensal}"></div>
+                <div class="form-text">Usada na regra 50-30-20 quando o mês ainda não tem receitas.</div>
+            </div>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-gc"><i class="bi bi-check2 me-1"></i>Salvar</button>
+            <a th:href="@{/usuarios}" class="btn btn-light">Cancelar</a>
+        </div>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

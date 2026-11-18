@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Pergunta')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('admin')}"></nav>
+
+<main class="container py-4" style="max-width: 820px">
+    <a th:href="@{/perguntas(licaoId=${licaoId})}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Voltar</a>
+    <h1 class="h3 mt-2 mb-4" th:text="${pergunta.id == null} ? 'Nova pergunta' : 'Editar pergunta'">Pergunta</h1>
+
+    <form th:action="@{/perguntas}" th:object="${pergunta}" method="post" class="gc-card p-4" novalidate>
+        <input type="hidden" th:field="*{id}">
+        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger rounded-4">
+            <div th:each="e : ${#fields.globalErrors()}" th:text="${e}">erro</div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-12">
+                <label class="form-label" for="licaoId">Lição</label>
+                <select class="form-select" id="licaoId" name="licaoId" required>
+                    <option value="">Escolha...</option>
+                    <option th:each="l : ${licoes}" th:value="${l.id}" th:text="${l.ordem} + '. ' + ${l.titulo}" th:selected="${l.id == licaoId}"></option>
+                </select>
+            </div>
+            <div class="col-md-12">
+                <label class="form-label" for="enunciado">Enunciado</label>
+                <textarea class="form-control" rows="2" th:field="*{enunciado}" th:errorclass="is-invalid"></textarea>
+                <div class="invalid-feedback" th:errors="*{enunciado}"></div>
+            </div>
+            <div class="col-md-6" th:each="letra : ${ {'A','B','C','D'} }">
+                <label class="form-label" th:for="'alternativa' + ${letra}" th:text="'Alternativa ' + ${letra}">Alt</label>
+                <input type="text" class="form-control" th:field="*{__${'alternativa' + letra}__}" th:errorclass="is-invalid">
+                <div class="invalid-feedback" th:errors="*{__${'alternativa' + letra}__}"></div>
+            </div>
+            <div class="col-md-12">
+                <label class="form-label d-block">Alternativa correta</label>
+                <div class="btn-group" role="group">
+                    <th:block th:each="letra : ${ {'A','B','C','D'} }">
+                        <input type="radio" class="btn-check" name="correta" th:id="'correta' + ${letra}" th:value="${letra}" th:checked="*{correta} == ${letra}">
+                        <label class="btn btn-outline-success px-4" th:for="'correta' + ${letra}" th:text="${letra}">A</label>
+                    </th:block>
+                </div>
+                <div class="text-danger small mt-1" th:if="${#fields.hasErrors('correta')}" th:errors="*{correta}"></div>
+            </div>
+            <div class="col-md-12">
+                <label class="form-label" for="explicacao">Explicação (aparece depois de responder)</label>
+                <textarea class="form-control" rows="2" th:field="*{explicacao}" th:errorclass="is-invalid"></textarea>
+                <div class="invalid-feedback" th:errors="*{explicacao}"></div>
+            </div>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-gc"><i class="bi bi-check2 me-1"></i>Salvar</button>
+            <a th:href="@{/perguntas(licaoId=${licaoId})}" class="btn btn-light">Cancelar</a>
+        </div>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

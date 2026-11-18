@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Transações')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('transacoes')}"></nav>
+
+<main class="container py-4">
+    <div th:replace="~{fragments/layout :: alertas}"></div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h1 class="h3 mb-0">Transações</h1>
+            <p class="text-secondary mb-0">Tudo o que entrou e saiu</p>
+        </div>
+        <div class="d-flex gap-2">
+            <form th:action="@{/transacoes}" method="get">
+                <select name="usuarioId" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos os usuários</option>
+                    <option th:each="u : ${usuarios}" th:value="${u.id}" th:text="${u.avatar} + ' ' + ${u.nome}" th:selected="${u.id == usuarioId}"></option>
+                </select>
+            </form>
+            <a th:href="@{/transacoes/novo(usuarioId=${usuarioId})}" class="btn btn-gc text-nowrap"><i class="bi bi-plus-lg me-1"></i>Nova</a>
+        </div>
+    </div>
+
+    <div class="gc-card overflow-hidden">
+        <div class="table-responsive">
+            <table class="table gc-tabela">
+                <thead><tr><th>Data</th><th>Descrição</th><th>Usuário</th><th>Categoria</th><th>Meta</th><th class="text-end">Valor</th><th class="text-end">Ações</th></tr></thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(transacoes)}"><td colspan="7" class="text-center text-secondary py-4">Nenhuma transação.</td></tr>
+                <tr th:each="t : ${transacoes}">
+                    <td class="text-secondary small text-nowrap" th:text="${@fmt.data(t.data)}">data</td>
+                    <td>
+                        <span th:text="${t.descricao}">desc</span>
+                        <span th:if="${t.impulsiva}" class="chip bg-amarelo-suave ms-1" title="Compra por impulso"><i class="bi bi-lightning-charge"></i></span>
+                    </td>
+                    <td><a th:href="@{/usuarios/{id}(id=${t.usuario.id})}" class="text-decoration-none" th:text="${t.usuario.avatar} + ' ' + ${t.usuario.nome}">user</a></td>
+                    <td><span class="dot me-1" th:style="'background:' + ${t.categoria.cor}"></span><span th:text="${t.categoria.nome}">cat</span></td>
+                    <td><a th:if="${t.meta != null}" th:href="@{/metas/{id}(id=${t.meta.id})}" class="text-decoration-none" th:text="${t.meta.emoji} + ' ' + ${t.meta.titulo}">meta</a></td>
+                    <td class="text-end fw-semibold text-nowrap" th:classappend="${t.receita} ? 'text-verde' : 'text-vermelho'"
+                        th:text="(${t.receita} ? '+ ' : '- ') + ${@fmt.moeda(t.valor)}">R$</td>
+                    <td class="text-end acoes">
+                        <a th:href="@{/transacoes/{id}/editar(id=${t.id})}" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        <form th:replace="~{fragments/layout :: excluir(@{/transacoes/{id}/excluir(id=${t.id})}, ${t.descricao})}"></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

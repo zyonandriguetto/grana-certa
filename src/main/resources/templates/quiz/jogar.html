@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Quiz: ' + ${licao.titulo})}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('licoes')}"></nav>
+
+<main class="container py-4" style="max-width: 760px">
+    <div class="d-flex align-items-center gap-3 mb-2">
+        <span class="avatar" th:text="${usuario.avatar}">🙂</span>
+        <div>
+            <small class="text-secondary" th:text="${usuario.nome} + ' está jogando'">jogando</small>
+            <h1 class="h4 mb-0" th:text="${licao.titulo}">Lição</h1>
+        </div>
+    </div>
+
+    <div class="quiz-progresso">
+        <div class="d-flex justify-content-between small mb-1">
+            <span>Respondidas: <strong id="respondidas">0</strong> de <span th:text="${#lists.size(perguntas)}">0</span></span>
+        </div>
+        <div class="progress"><div id="barra" class="progress-bar" style="width:0%"></div></div>
+    </div>
+
+    <form th:action="@{/quiz/{id}(id=${licao.id})}" method="post" id="quiz">
+        <input type="hidden" name="usuarioId" th:value="${usuario.id}">
+        <div th:each="p, it : ${perguntas}" class="gc-card p-4 mb-3">
+            <small class="text-roxo fw-semibold" th:text="'Pergunta ' + ${it.count}">Pergunta 1</small>
+            <h2 class="h5 mt-1 mb-3" th:text="${p.enunciado}">Enunciado</h2>
+            <div class="d-flex flex-column gap-2">
+                <th:block th:each="alt : ${p.alternativas}">
+                    <input type="radio" class="btn-check" th:name="'resposta_' + ${p.id}" th:id="'p' + ${p.id} + ${alt.key}" th:value="${alt.key}" required>
+                    <label class="alternativa" th:for="'p' + ${p.id} + ${alt.key}">
+                        <span class="letra" th:text="${alt.key}">A</span>
+                        <span th:text="${alt.value}">texto</span>
+                    </label>
+                </th:block>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-gc btn-lg w-100 mb-4"><i class="bi bi-send-check me-1"></i>Enviar respostas</button>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+<script>
+    const form = document.getElementById('quiz');
+    const total = new Set([...form.querySelectorAll('input[type=radio]')].map(r => r.name)).size;
+    form.addEventListener('change', () => {
+        const feitas = new Set([...form.querySelectorAll('input[type=radio]:checked')].map(r => r.name)).size;
+        document.getElementById('respondidas').textContent = feitas;
+        document.getElementById('barra').style.width = (feitas / total * 100) + '%';
+    });
+</script>
+</body>
+</html>

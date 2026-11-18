@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Juros compostos')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('simuladores')}"></nav>
+
+<main class="container py-4">
+    <a th:href="@{/simuladores}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Simuladores</a>
+    <h1 class="h3 mt-2 mb-1">Juros compostos</h1>
+    <p class="text-secondary mb-4">O tempo é o maior aliado de quem começa cedo.</p>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <form th:action="@{/simuladores/juros-compostos}" method="get" class="gc-card p-4">
+                <div class="mb-3">
+                    <label class="form-label" for="inicial">Valor inicial (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="inicial" name="inicial" th:value="${inicial}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="mensal">Quanto vai guardar por mês (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="mensal" name="mensal" th:value="${mensal}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="taxa">Rendimento ao mês (%)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="taxa" name="taxa" th:value="${taxa}">
+                    <div class="form-text">Exemplo: 0,8% ao mês é próximo de uma aplicação conservadora de renda fixa.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="meses">Por quantos meses</label>
+                    <input type="number" min="1" max="600" class="form-control" id="meses" name="meses" th:value="${meses}">
+                </div>
+                <button class="btn btn-gc w-100"><i class="bi bi-calculator me-1"></i>Calcular</button>
+            </form>
+        </div>
+        <div class="col-lg-8">
+            <div class="row g-3 mb-3">
+                <div class="col-sm-4"><div class="gc-card gc-stat"><div class="rotulo">Você colocou</div><div class="valor" th:text="${@fmt.moeda(r.totalInvestido)}">R$</div></div></div>
+                <div class="col-sm-4"><div class="gc-card gc-stat"><div class="rotulo">Os juros renderam</div><div class="valor text-verde" th:text="${@fmt.moeda(r.juros)}">R$</div></div></div>
+                <div class="col-sm-4"><div class="gc-card gc-stat"><div class="rotulo">Total no final</div><div class="valor text-roxo" th:text="${@fmt.moeda(r.saldoFinal)}">R$</div></div></div>
+            </div>
+            <div class="gc-card p-4">
+                <canvas id="grafico" height="140"></canvas>
+                <p class="small text-secondary mt-3 mb-0">
+                    <i class="bi bi-info-circle me-1"></i>Simulação educativa com taxa constante e sem impostos. Rendimentos reais variam e podem ter Imposto de Renda.
+                </p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    const serie = /*[[${r.serie}]]*/ [];
+    const brl = v => Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+    new Chart(document.getElementById('grafico'), {
+        type: 'line',
+        data: {
+            labels: serie.map(p => p.mes),
+            datasets: [
+                {label: 'Total acumulado', data: serie.map(p => p.saldo), borderColor: '#6c5ce7', backgroundColor: 'rgba(108,92,231,.15)', fill: true, tension: .25, pointRadius: 0},
+                {label: 'Dinheiro que você colocou', data: serie.map(p => p.investido), borderColor: '#00b894', borderDash: [6, 4], pointRadius: 0}
+            ]
+        },
+        options: {
+            interaction: {mode: 'index', intersect: false},
+            plugins: {tooltip: {callbacks: {title: c => 'Mês ' + c[0].label, label: c => c.dataset.label + ': ' + brl(c.raw)}}},
+            scales: {y: {ticks: {callback: v => brl(v)}}, x: {title: {display: true, text: 'meses'}, ticks: {maxTicksLimit: 12}}}
+        }
+    });
+</script>
+</body>
+</html>

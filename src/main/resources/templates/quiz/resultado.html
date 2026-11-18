@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Resultado do quiz')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar('licoes')}"></nav>
+
+<main class="container py-4" style="max-width: 760px" th:with="t=${tentativa}">
+    <div class="gc-card p-4 p-md-5 text-center mb-4">
+        <div class="display-3 mb-2" th:text="${t.percentual == 100} ? '🏆' : (${t.percentual >= 60} ? '🎉' : '📚')">🎉</div>
+        <h1 class="h3" th:text="${t.percentual == 100} ? 'Gabaritou!' : (${t.percentual >= 60} ? 'Mandou bem!' : 'Bora revisar?')">Resultado</h1>
+        <p class="text-secondary mb-4" th:text="${t.usuario.nome} + ' acertou ' + ${t.acertos} + ' de ' + ${t.totalPerguntas} + ' em ' + ${t.licao.titulo}">x</p>
+        <div class="row justify-content-center g-3 mb-4">
+            <div class="col-4"><div class="fs-2 fw-bold text-roxo" th:text="${t.percentual} + '%'">0%</div><small class="text-secondary">acertos</small></div>
+            <div class="col-4"><div class="fs-2 fw-bold text-verde" th:text="'+' + ${t.pontos}">0</div><small class="text-secondary">pontos</small></div>
+            <div class="col-4"><div class="fs-2 fw-bold" th:text="${t.usuario.pontuacao}">0</div><small class="text-secondary">total</small></div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 justify-content-center">
+            <a th:href="@{/quiz/{id}(id=${t.licao.id}, usuarioId=${t.usuario.id})}" class="btn btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Tentar de novo</a>
+            <a th:if="${proxima != null}" th:href="@{/licoes/{id}(id=${proxima.id})}" class="btn btn-gc">Próxima lição <i class="bi bi-arrow-right"></i></a>
+            <a th:href="@{/usuarios/{id}(id=${t.usuario.id})}" class="btn btn-light">Ir para o painel</a>
+        </div>
+    </div>
+
+    <h2 class="h5 mb-3">Correção</h2>
+    <div th:each="p, it : ${perguntas}" class="gc-card p-4 mb-3" th:with="marcada=${respostas.get(p.id)}">
+        <div class="d-flex justify-content-between">
+            <small class="fw-semibold" th:classappend="${marcada == p.correta} ? 'text-verde' : 'text-vermelho'"
+                   th:text="'Pergunta ' + ${it.count} + (${marcada == p.correta} ? ' · Acertou' : ' · Errou')">x</small>
+        </div>
+        <h3 class="h6 mt-1 mb-3" th:text="${p.enunciado}">Enunciado</h3>
+        <div class="d-flex flex-column gap-2 mb-3">
+            <div th:each="alt : ${p.alternativas}" class="alternativa"
+                 th:classappend="${alt.key == p.correta} ? 'alt-certa' : (${alt.key == marcada} ? 'alt-errada' : '')">
+                <span class="letra" th:text="${alt.key}">A</span>
+                <span class="flex-grow-1" th:text="${alt.value}">texto</span>
+                <i th:if="${alt.key == p.correta}" class="bi bi-check-circle-fill text-verde"></i>
+                <i th:if="${alt.key == marcada and alt.key != p.correta}" class="bi bi-x-circle-fill text-vermelho"></i>
+            </div>
+        </div>
+        <div th:if="${p.explicacao}" class="small bg-roxo-suave rounded-3 p-3"><i class="bi bi-lightbulb me-1"></i><span th:text="${p.explicacao}">explicação</span></div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: rodape}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>
