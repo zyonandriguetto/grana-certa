@@ -18,25 +18,26 @@ O **GranaCerta** junta três frentes:
 
 ## Tecnologias
 
-- **Java 21** + **Spring Boot 3.5** (Web, Data JPA, Validation, Thymeleaf)
-- **MySQL 8** (banco oficial) · H2 em memória (perfil de demonstração/testes)
+- **Java 21** + **Spring Boot 3.5** (Web, Data JPA, Validation)
+- **API REST** em JSON (`@RestController`), erros no formato RFC 9457 (`application/problem+json`)
+- **PostgreSQL no Supabase** (banco oficial) · H2 em memória (perfil de demonstração/testes)
 - **JPA / Hibernate**
-- Front-end: **Thymeleaf + Bootstrap 5 + Bootstrap Icons + Chart.js**, responsivo
 - Testes: JUnit 5 + MockMvc
 
-## Arquitetura MVC
+## Arquitetura
 
 ```
 src/main/java/br/com/granacerta
-├── model/        → Model: entidades JPA e enums
+├── model/        → entidades JPA e enums
 ├── repository/   → acesso a dados (Spring Data JPA)
 ├── service/      → regras de negócio (CRUD, painel, quiz, simuladores)
-├── controller/   → Controller: rotas HTTP (@Controller)
+├── dto/          → contratos JSON: Request (entrada validada) e Response (saída)
+├── controller/   → @RestController: rotas HTTP + TratadorDeErros
 └── config/       → carga de dados de exemplo
-src/main/resources
-├── templates/    → View: páginas Thymeleaf
-└── static/css/   → estilos
+supabase/         → script SQL de segurança (RLS) para rodar no Supabase
 ```
+
+Os controllers não expõem as entidades JPA diretamente (elas têm referências circulares, como `Usuario ↔ Transacao ↔ Meta`): entram `*Dto.Request` e saem `*Dto.Response`.
 
 ## Entidades (7, todas relacionadas)
 
@@ -60,67 +61,102 @@ Usuario 1───N Transacao N───1 Categoria
 | `Pergunta` | Questão de múltipla escolha (A–D) com explicação |
 | `Tentativa` | Resultado de um usuário em um quiz (acertos, pontos, data) |
 
-## Rotas de CRUD
+## Rotas da API
 
-Todas as entidades têm o mesmo padrão:
+Todas as entidades seguem o mesmo padrão REST:
 
-| Método | Rota | Ação |
-|---|---|---|
-| GET | `/{recurso}` | Listar |
-| GET | `/{recurso}/novo` | Formulário de cadastro |
-| POST | `/{recurso}` | Criar / atualizar (com validação) |
-| GET | `/{recurso}/{id}/editar` | Formulário de edição |
-| POST | `/{recurso}/{id}/excluir` | Excluir |
+| Método | Rota | Ação | Resposta |
+|---|---|---|---|
+| GET | `/api/{recurso}` | Listar | `200` |
+| GET | `/api/{recurso}/{id}` | Buscar um | `200` |
+| POST | `/api/{recurso}` | Criar | `201` + cabeçalho `Location` |
+| PUT | `/api/{recurso}/{id}` | Atualizar | `200` |
+| DELETE | `/api/{recurso}/{id}` | Excluir | `204` |
 
 Recursos: `usuarios`, `categorias`, `transacoes`, `metas`, `licoes`, `perguntas`, `tentativas`.
 
-Outras rotas: `/usuarios/{id}` (painel), `/metas/{id}`, `/licoes/{id}`, `/quiz/{licaoId}?usuarioId=`, `/ranking`, `/simuladores/...`.
+Filtros: `/api/transacoes?usuarioId=`, `/api/metas?usuarioId=`, `/api/perguntas?licaoId=`.
+
+Outras rotas:
+
+| Rota | O que devolve |
+|---|---|
+| `GET /` ou `GET /api` | Resumo da API com o total de registros (serve de health check) |
+| `GET /api/ranking` | Usuários ordenados pela pontuação nos quizzes |
+| `GET /api/usuarios/{id}/painel?mes=2026-11` | Painel financeiro do mês (padrão: mês atual) |
+| `GET /api/quiz/{licaoId}` | Perguntas da lição, **sem** o gabarito |
+| `POST /api/quiz/{licaoId}` | Corrige, grava a tentativa e devolve o gabarito comentado |
+| `GET /api/simuladores` | Lista os simuladores |
+| `GET /api/simuladores/juros-compostos?inicial=&mensal=&taxa=&meses=` | Juros compostos |
+| `GET /api/simuladores/cartao-rotativo?divida=&taxa=&meses=` | Rotativo do cartão |
+| `GET /api/simuladores/parcelado-ou-avista?preco=&desconto=&parcelas=&rendimento=` | À vista x parcelado |
+
+### Erros
+
+| Status | Quando | Corpo |
+|---|---|---|
+| `400` | Validação falhou, JSON ilegível ou parâmetro inválido | `{ "title": "Dados inválidos", "erros": { "campo": "mensagem" } }` |
+| `404` | Registro não existe | `{ "title": "Registro não encontrado", "detail": "..." }` |
+| `409` | E-mail já cadastrado ou violação de integridade no banco | `{ "title": "...", "detail": "..." }` |
+| `422` | Regra de negócio (ex.: excluir categoria que tem transações) | `{ "title": "Regra de negócio", "detail": "..." }` |
+
+### Exemplos
+
+```bash
+# criar usuário
+curl -i -X POST http://localhost:8080/api/usuarios -H "Content-Type: application/json" \
+  -d '{"nome":"Ana","email":"ana@x.com","dataNascimento":"2008-03-10","rendaMensal":500}'
+
+# responder um quiz (chaves = id da pergunta, valores = letra marcada)
+curl -X POST http://localhost:8080/api/quiz/1 -H "Content-Type: application/json" \
+  -d '{"usuarioId":1,"respostas":{"1":"A","2":"C","3":"B"}}'
+```
 
 ## Como rodar
 
 ### Pré-requisitos
 - **JDK 21+** (não precisa instalar Maven: o projeto tem o Maven Wrapper `mvnw`)
-- **MySQL 8** (ou Docker)
+- Um projeto no **[Supabase](https://supabase.com)**
 
-### 1. Subir o MySQL
+### 1. Conectar no Supabase
 
-Com Docker (mais fácil):
-```bash
-docker compose up -d
-```
-Ou use um MySQL já instalado. O banco `granacerta` é criado automaticamente.
+1. No painel do projeto, clique em **Connect** e escolha **Session pooler**.
+2. Copie `.env.example` para `.env` (o `.env` não vai para o git) e preencha com os dados do painel:
 
-### 2. Configurar a conexão (se necessário)
-
-O padrão é `root` / `root` em `localhost:3306`. Para mudar, edite `src/main/resources/application.properties` ou use variáveis de ambiente:
-
-```bash
-# Linux/macOS
-export DB_USER=seu_usuario DB_PASS=sua_senha
-# Windows (PowerShell)
-$env:DB_USER="seu_usuario"; $env:DB_PASS="sua_senha"
+```properties
+DB_URL=jdbc:postgresql://aws-0-REGIAO.pooler.supabase.com:5432/postgres?sslmode=require
+DB_USER=postgres.SEU_PROJECT_REF
+DB_PASS=sua_senha_do_banco
 ```
 
-### 3. Rodar
+Também funciona definindo `DB_URL`, `DB_USER` e `DB_PASS` como variáveis de ambiente (elas têm prioridade sobre o `.env`).
+
+> **Por que o Session pooler?** A conexão direta (`db.<ref>.supabase.co`) é só IPv6 no plano gratuito. O Session pooler funciona em redes IPv4 e aceita prepared statements. Se preferir o Transaction pooler (porta `6543`), acrescente `&prepareThreshold=0` na `DB_URL`.
+
+### 2. Rodar
 ```bash
 # Linux/macOS
 ./mvnw spring-boot:run
 # Windows
 mvnw.cmd spring-boot:run
 ```
-Acesse **http://localhost:8080**. Na primeira execução o banco é populado com 3 usuários, 12 categorias, 6 meses de transações, metas, 6 lições e 21 perguntas.
+Acesse **http://localhost:8080/api**. Na primeira execução as tabelas são criadas pelo Hibernate (`ddl-auto=update`) e o banco é populado com 3 usuários, 12 categorias, 6 meses de transações, metas, 6 lições e 21 perguntas.
 
-### Rodar sem MySQL (demonstração rápida)
+### 3. Proteger as tabelas (uma vez só)
+
+Tabelas criadas por ORM no schema `public` do Supabase nascem **sem Row Level Security**, e a chave `anon` do Supabase é pública. Depois da primeira execução, rode o conteúdo de [`supabase/habilitar-rls.sql`](supabase/habilitar-rls.sql) no **SQL Editor** do Supabase. A aplicação não é afetada, porque conecta como `postgres` (dono das tabelas).
+
+### Rodar sem Supabase (demonstração rápida)
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=h2
 ```
-Os dados ficam em memória e são recriados a cada execução.
+Os dados ficam em memória e são recriados a cada execução. Não precisa de `.env`.
 
 ### Testes
 ```bash
 ./mvnw test
 ```
-Os testes abrem todas as páginas, exercitam o CRUD com validação, o quiz, a regra de exclusão de categorias e conferem os cálculos dos simuladores.
+Os testes usam o perfil `h2` e cobrem todos os endpoints de leitura, o CRUD com validação, o formato dos erros, o quiz, as regras de negócio e os cálculos dos simuladores.
 
 ## Aviso
 
