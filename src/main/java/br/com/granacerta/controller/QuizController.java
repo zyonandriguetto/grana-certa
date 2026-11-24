@@ -1,66 +1,58 @@
 package br.com.granacerta.controller;
 
+import br.com.granacerta.dto.LicaoDto;
+import br.com.granacerta.dto.QuizDto;
+import br.com.granacerta.dto.TentativaDto;
 import br.com.granacerta.model.Licao;
 import br.com.granacerta.model.Pergunta;
 import br.com.granacerta.model.Tentativa;
-import br.com.granacerta.service.*;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import br.com.granacerta.service.LicaoService;
+import br.com.granacerta.service.PerguntaService;
+import br.com.granacerta.service.RegraNegocioException;
+import br.com.granacerta.service.TentativaService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Jogo de perguntas: o usuário responde e a tentativa é gravada no banco. */
-@Controller
-@RequestMapping("/quiz")
+@RestController
+@RequestMapping("/api/quiz")
 public class QuizController {
 
     private final LicaoService licoes;
     private final PerguntaService perguntas;
-    private final UsuarioService usuarios;
     private final TentativaService tentativas;
 
-    public QuizController(LicaoService licoes, PerguntaService perguntas,
-                          UsuarioService usuarios, TentativaService tentativas) {
+    public QuizController(LicaoService licoes, PerguntaService perguntas, TentativaService tentativas) {
         this.licoes = licoes;
         this.perguntas = perguntas;
-        this.usuarios = usuarios;
         this.tentativas = tentativas;
     }
 
+    /** Perguntas da lição, sem o gabarito. */
     @GetMapping("/{licaoId}")
-    public String jogar(@PathVariable Long licaoId, @RequestParam Long usuarioId, Model model) {
+    public QuizDto.Quiz jogar(@PathVariable Long licaoId) {
         Licao licao = licoes.buscar(licaoId);
         List<Pergunta> lista = perguntas.listarPorLicao(licaoId);
         if (lista.isEmpty()) throw new RegraNegocioException("Essa lição ainda não tem perguntas cadastradas.");
-        model.addAttribute("licao", licao);
-        model.addAttribute("perguntas", lista);
-        model.addAttribute("usuario", usuarios.buscar(usuarioId));
-        return "quiz/jogar";
+        return new QuizDto.Quiz(LicaoDto.Response.de(licao), lista.stream().map(QuizDto.PerguntaQuiz::de).toList());
     }
 
+    /** Corrige o quiz, grava a tentativa e devolve o gabarito comentado. */
     @PostMapping("/{licaoId}")
-    public String corrigir(@PathVariable Long licaoId, @RequestParam Long usuarioId,
-                           @RequestParam Map<String, String> params, Model model) {
-        // campos chegam como resposta_{idPergunta}=A
-        Map<Long, String> respostas = new HashMap<>();
-        params.forEach((k, v) -> {
-            if (k.startsWith("resposta_")) {
-                try {
-                    respostas.put(Long.parseLong(k.substring("resposta_".length())), v);
-                } catch (NumberFormatException ignored) {
-                    // campo inválido é ignorado
-                }
-            }
-        });
-        Tentativa t = tentativas.corrigirQuiz(usuarioId, licaoId, respostas);
-        model.addAttribute("tentativa", t);
-        model.addAttribute("perguntas", perguntas.listarPorLicao(licaoId));
-        model.addAttribute("respostas", respostas);
-        model.addAttribute("proxima", licoes.listar().stream()
-                .filter(l -> l.getOrdem() > t.getLicao().getOrdem()).findFirst().orElse(null));
-        return "quiz/resultado";
+    public QuizDto.Resultado corrigir(@PathVariable Long licaoId, @Valid @RequestBody QuizDto.Request req) {
+        licoes.buscar(licaoId); // 404 se a lição não existe
+        Tentativa t = tentativas.corrigirQuiz(req.usuarioId(), licaoId, req.respostas());
+
+        List<QuizDto.Correcao> correcoes = perguntas.listarPorLicao(licaoId).stream()
+                .map(p -> QuizDto.Correcao.de(p, req.respostas().get(p.getId())))
+                .toList();
+        LicaoDto.Response proxima = licoes.listar().stream()
+                .filter(l -> l.getOrdem() > t.getLicao().getOrdem())
+                .findFirst()
+                .map(LicaoDto.Response::de)
+                .orElse(null);
+        return new QuizDto.Resultado(TentativaDto.Response.de(t), correcoes, proxima);
     }
 }

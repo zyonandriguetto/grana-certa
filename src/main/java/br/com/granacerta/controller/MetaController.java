@@ -1,76 +1,57 @@
 package br.com.granacerta.controller;
 
+import br.com.granacerta.dto.MetaDto;
 import br.com.granacerta.model.Meta;
 import br.com.granacerta.service.MetaService;
-import br.com.granacerta.service.UsuarioService;
 import jakarta.validation.Valid;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-@Controller
-@RequestMapping("/metas")
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/metas")
 public class MetaController {
 
     private final MetaService service;
-    private final UsuarioService usuarios;
 
-    public MetaController(MetaService service, UsuarioService usuarios) {
+    public MetaController(MetaService service) {
         this.service = service;
-        this.usuarios = usuarios;
     }
 
+    /** Filtro opcional: ?usuarioId= */
     @GetMapping
-    public String listar(@RequestParam(required = false) Long usuarioId, Model model) {
-        model.addAttribute("metas", usuarioId == null ? service.listar() : service.listarPorUsuario(usuarioId));
-        model.addAttribute("usuarios", usuarios.listar());
-        model.addAttribute("usuarioId", usuarioId);
-        return "metas/lista";
+    public List<MetaDto.Response> listar(@RequestParam(required = false) Long usuarioId) {
+        List<Meta> lista = usuarioId == null ? service.listar() : service.listarPorUsuario(usuarioId);
+        return lista.stream().map(MetaDto.Response::de).toList();
     }
 
+    /** Detalhe da meta, incluindo os depósitos (aportes). */
     @GetMapping("/{id}")
-    public String detalhe(@PathVariable Long id, Model model) {
-        model.addAttribute("meta", service.buscar(id));
-        return "metas/detalhe";
-    }
-
-    @GetMapping("/novo")
-    public String novo(@RequestParam(required = false) Long usuarioId, Model model) {
-        model.addAttribute("meta", new Meta());
-        model.addAttribute("usuarioId", usuarioId);
-        model.addAttribute("usuarios", usuarios.listar());
-        return "metas/form";
-    }
-
-    @GetMapping("/{id}/editar")
-    public String editar(@PathVariable Long id, Model model) {
-        Meta m = service.buscar(id);
-        model.addAttribute("meta", m);
-        model.addAttribute("usuarioId", m.getUsuario().getId());
-        model.addAttribute("usuarios", usuarios.listar());
-        return "metas/form";
+    public MetaDto.Response buscar(@PathVariable Long id) {
+        return MetaDto.Response.de(service.buscar(id));
     }
 
     @PostMapping
-    public String salvar(@Valid @ModelAttribute("meta") Meta meta, BindingResult br,
-                         @RequestParam(required = false) Long usuarioId, Model model, RedirectAttributes ra) {
-        if (usuarioId == null) br.reject("usuario", "Escolha o usuário dono da meta");
-        if (br.hasErrors()) {
-            model.addAttribute("usuarioId", usuarioId);
-            model.addAttribute("usuarios", usuarios.listar());
-            return "metas/form";
-        }
-        Meta salva = service.salvar(meta, usuarioId);
-        ra.addFlashAttribute("sucesso", "Meta \"" + salva.getTitulo() + "\" salva.");
-        return "redirect:/metas/" + salva.getId();
+    public ResponseEntity<MetaDto.Response> criar(@Valid @RequestBody MetaDto.Request req) {
+        Meta m = new Meta();
+        req.aplicarEm(m);
+        Meta salva = service.salvar(m, req.usuarioId());
+        return Respostas.criado(salva.getId(), MetaDto.Response.de(salva));
     }
 
-    @PostMapping("/{id}/excluir")
-    public String excluir(@PathVariable Long id, RedirectAttributes ra) {
+    @PutMapping("/{id}")
+    public MetaDto.Response atualizar(@PathVariable Long id, @Valid @RequestBody MetaDto.Request req) {
+        Meta m = service.buscar(id);
+        req.aplicarEm(m);
+        return MetaDto.Response.de(service.salvar(m, req.usuarioId()));
+    }
+
+    /** Os depósitos continuam no histórico de transações, só perdem o vínculo com a meta. */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void excluir(@PathVariable Long id) {
         service.excluir(id);
-        ra.addFlashAttribute("sucesso", "Meta excluída. Os depósitos continuam no histórico de transações.");
-        return "redirect:/metas";
     }
 }

@@ -2,52 +2,80 @@ package br.com.granacerta.controller;
 
 import br.com.granacerta.service.RegistroNaoEncontradoException;
 import br.com.granacerta.service.RegraNegocioException;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.http.*;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-/** Converte erros em mensagens amigáveis em vez da página branca de erro. */
-@ControllerAdvice
-public class TratadorDeErros {
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Converte erros em respostas JSON no formato RFC 9457 (application/problem+json).
+ * Os erros padrão do Spring MVC (método não permitido, parâmetro faltando etc.)
+ * já são tratados pela classe base.
+ */
+@RestControllerAdvice
+public class TratadorDeErros extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(RegistroNaoEncontradoException.class)
+    public ResponseEntity<ProblemDetail> naoEncontrado(RegistroNaoEncontradoException e) {
+        return problema(HttpStatus.NOT_FOUND, "Registro não encontrado", e.getMessage());
+    }
 
     @ExceptionHandler(RegraNegocioException.class)
-    public String regraNegocio(RegraNegocioException e, HttpServletRequest req, RedirectAttributes ra) {
-        ra.addFlashAttribute("erro", e.getMessage());
-        return "redirect:" + voltar(req);
+    public ResponseEntity<ProblemDetail> regraNegocio(RegraNegocioException e) {
+        return problema(HttpStatus.UNPROCESSABLE_ENTITY, "Regra de negócio", e.getMessage());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public String integridade(HttpServletRequest req, RedirectAttributes ra) {
-        ra.addFlashAttribute("erro", "Não foi possível concluir: este registro está ligado a outros dados.");
-        return "redirect:" + voltar(req);
+    public ResponseEntity<ProblemDetail> integridade(DataIntegrityViolationException e) {
+        return problema(HttpStatus.CONFLICT, "Conflito de dados",
+                "Não foi possível concluir: este registro está ligado a outros dados ou duplica um já existente.");
     }
 
-    @ExceptionHandler(RegistroNaoEncontradoException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public String naoEncontrado(RegistroNaoEncontradoException e, Model model) {
-        model.addAttribute("mensagem", e.getMessage());
-        return "erro";
+    /** Falhas do Bean Validation: devolve { "erros": { campo: mensagem } }. */
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+                                                                  HttpHeaders headers, HttpStatusCode status,
+                                                                  WebRequest request) {
+        Map<String, String> erros = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(fe -> erros.putIfAbsent(fe.getField(), fe.getDefaultMessage()));
+        ex.getBindingResult().getGlobalErrors().forEach(ge -> erros.putIfAbsent(ge.getObjectName(), ge.getDefaultMessage()));
+
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, "Um ou mais campos estão inválidos.");
+        pd.setTitle("Dados inválidos");
+        pd.setProperty("erros", erros);
+        return handleExceptionInternal(ex, pd, headers, status, request);
     }
 
-    /** Volta para a página de onde veio, ou para a listagem do recurso. */
-    private String voltar(HttpServletRequest req) {
-        String referer = req.getHeader("Referer");
-        if (referer != null && !referer.isBlank()) {
-            try {
-                java.net.URI uri = java.net.URI.create(referer);
-                String path = uri.getRawPath() + (uri.getRawQuery() != null ? "?" + uri.getRawQuery() : "");
-                if (path.startsWith("/")) return path;
-            } catch (IllegalArgumentException ignored) {
-                // cai no padrão abaixo
-            }
-        }
-        String uri = req.getRequestURI();
-        String[] partes = uri.split("/");
-        return partes.length > 1 ? "/" + partes[1] : "/";
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+                                                                  HttpHeaders headers, HttpStatusCode status,
+                                                                  WebRequest request) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status,
+                "Corpo da requisição ilegível: confira se o JSON está bem formado e se datas, números e opções (enums) têm valores válidos.");
+        pd.setTitle("Requisição inválida");
+        return handleExceptionInternal(ex, pd, headers, status, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException ex, HttpHeaders headers,
+                                                        HttpStatusCode status, WebRequest request) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status,
+                "Valor inválido para o parâmetro \"" + ex.getPropertyName() + "\": " + ex.getValue());
+        pd.setTitle("Parâmetro inválido");
+        return handleExceptionInternal(ex, pd, headers, status, request);
+    }
+
+    private static ResponseEntity<ProblemDetail> problema(HttpStatus status, String titulo, String detalhe) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detalhe);
+        pd.setTitle(titulo);
+        return ResponseEntity.status(status).body(pd);
     }
 }

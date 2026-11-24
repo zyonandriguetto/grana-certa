@@ -1,20 +1,22 @@
 package br.com.granacerta.controller;
 
+import br.com.granacerta.dto.PainelDto;
+import br.com.granacerta.dto.UsuarioDto;
 import br.com.granacerta.model.Usuario;
 import br.com.granacerta.service.PainelService;
 import br.com.granacerta.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.YearMonth;
+import java.util.List;
 
-@Controller
-@RequestMapping("/usuarios")
+@RestController
+@RequestMapping("/api/usuarios")
 public class UsuarioController {
 
     private final UsuarioService service;
@@ -26,51 +28,48 @@ public class UsuarioController {
     }
 
     @GetMapping
-    public String listar(Model model) {
-        model.addAttribute("usuarios", service.listar());
-        return "usuarios/lista";
+    public List<UsuarioDto.Response> listar() {
+        return service.listar().stream().map(UsuarioDto.Response::de).toList();
     }
 
-    /** Painel financeiro do usuário (página de detalhe). */
     @GetMapping("/{id}")
-    public String painel(@PathVariable Long id,
-                         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth mes,
-                         Model model) {
-        YearMonth ref = mes != null ? mes : YearMonth.now();
-        model.addAttribute("p", painelService.montar(id, ref));
-        model.addAttribute("mesAnterior", ref.minusMonths(1));
-        model.addAttribute("mesSeguinte", ref.plusMonths(1));
-        return "usuarios/painel";
+    public UsuarioDto.Response buscar(@PathVariable Long id) {
+        return UsuarioDto.Response.de(service.buscar(id));
     }
 
-    @GetMapping("/novo")
-    public String novo(Model model) {
-        model.addAttribute("usuario", new Usuario());
-        return "usuarios/form";
-    }
-
-    @GetMapping("/{id}/editar")
-    public String editar(@PathVariable Long id, Model model) {
-        model.addAttribute("usuario", service.buscar(id));
-        return "usuarios/form";
+    /** Painel financeiro do mês (padrão: mês atual). Exemplo: ?mes=2026-11 */
+    @GetMapping("/{id}/painel")
+    public PainelDto.Response painel(@PathVariable Long id,
+                                     @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth mes) {
+        return PainelDto.Response.de(painelService.montar(id, mes != null ? mes : YearMonth.now()));
     }
 
     @PostMapping
-    public String salvar(@Valid @ModelAttribute("usuario") Usuario usuario, BindingResult br, RedirectAttributes ra) {
-        if (!br.hasFieldErrors("email") && service.emailEmUso(usuario)) {
-            br.rejectValue("email", "duplicado", "Já existe alguém com esse e-mail");
-        }
-        if (br.hasErrors()) return "usuarios/form";
-        boolean novo = usuario.getId() == null;
-        Usuario salvo = service.salvar(usuario);
-        ra.addFlashAttribute("sucesso", novo ? "Bem-vindo(a), " + salvo.getNome() + "!" : "Dados atualizados.");
-        return "redirect:/usuarios/" + salvo.getId();
+    public ResponseEntity<UsuarioDto.Response> criar(@Valid @RequestBody UsuarioDto.Request req) {
+        verificarEmail(req.email(), null);
+        Usuario u = new Usuario();
+        req.aplicarEm(u);
+        Usuario salvo = service.salvar(u);
+        return Respostas.criado(salvo.getId(), UsuarioDto.Response.de(salvo));
     }
 
-    @PostMapping("/{id}/excluir")
-    public String excluir(@PathVariable Long id, RedirectAttributes ra) {
+    @PutMapping("/{id}")
+    public UsuarioDto.Response atualizar(@PathVariable Long id, @Valid @RequestBody UsuarioDto.Request req) {
+        Usuario u = service.buscar(id);
+        verificarEmail(req.email(), id);
+        req.aplicarEm(u);
+        return UsuarioDto.Response.de(service.salvar(u));
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void excluir(@PathVariable Long id) {
         service.excluir(id);
-        ra.addFlashAttribute("sucesso", "Usuário excluído junto com suas transações, metas e tentativas.");
-        return "redirect:/usuarios";
+    }
+
+    private void verificarEmail(String email, Long idIgnorado) {
+        if (service.emailEmUso(email, idIgnorado)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe alguém com esse e-mail");
+        }
     }
 }

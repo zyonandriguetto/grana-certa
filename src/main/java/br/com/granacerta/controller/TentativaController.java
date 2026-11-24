@@ -1,83 +1,63 @@
 package br.com.granacerta.controller;
 
+import br.com.granacerta.dto.TentativaDto;
 import br.com.granacerta.model.Tentativa;
-import br.com.granacerta.service.LicaoService;
+import br.com.granacerta.service.RegraNegocioException;
 import br.com.granacerta.service.TentativaService;
-import br.com.granacerta.service.UsuarioService;
 import jakarta.validation.Valid;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-/** CRUD administrativo das tentativas (o fluxo normal é responder o quiz). */
-@Controller
-@RequestMapping("/tentativas")
+import java.util.List;
+
+/** CRUD administrativo das tentativas (o fluxo normal é responder o quiz em /api/quiz). */
+@RestController
+@RequestMapping("/api/tentativas")
 public class TentativaController {
 
     private final TentativaService service;
-    private final UsuarioService usuarios;
-    private final LicaoService licoes;
 
-    public TentativaController(TentativaService service, UsuarioService usuarios, LicaoService licoes) {
+    public TentativaController(TentativaService service) {
         this.service = service;
-        this.usuarios = usuarios;
-        this.licoes = licoes;
-    }
-
-    private void opcoes(Model model) {
-        model.addAttribute("usuarios", usuarios.listar());
-        model.addAttribute("licoes", licoes.listar());
     }
 
     @GetMapping
-    public String listar(Model model) {
-        model.addAttribute("tentativas", service.listar());
-        return "tentativas/lista";
+    public List<TentativaDto.Response> listar() {
+        return service.listar().stream().map(TentativaDto.Response::de).toList();
     }
 
-    @GetMapping("/novo")
-    public String novo(Model model) {
-        model.addAttribute("tentativa", new Tentativa());
-        model.addAttribute("usuarioId", null);
-        model.addAttribute("licaoId", null);
-        opcoes(model);
-        return "tentativas/form";
-    }
-
-    @GetMapping("/{id}/editar")
-    public String editar(@PathVariable Long id, Model model) {
-        Tentativa t = service.buscar(id);
-        model.addAttribute("tentativa", t);
-        model.addAttribute("usuarioId", t.getUsuario().getId());
-        model.addAttribute("licaoId", t.getLicao().getId());
-        opcoes(model);
-        return "tentativas/form";
+    @GetMapping("/{id}")
+    public TentativaDto.Response buscar(@PathVariable Long id) {
+        return TentativaDto.Response.de(service.buscar(id));
     }
 
     @PostMapping
-    public String salvar(@Valid @ModelAttribute("tentativa") Tentativa tentativa, BindingResult br,
-                         @RequestParam(required = false) Long usuarioId,
-                         @RequestParam(required = false) Long licaoId,
-                         Model model, RedirectAttributes ra) {
-        if (usuarioId == null) br.reject("usuario", "Escolha o usuário");
-        if (licaoId == null) br.reject("licao", "Escolha a lição");
-        if (br.hasErrors()) {
-            model.addAttribute("usuarioId", usuarioId);
-            model.addAttribute("licaoId", licaoId);
-            opcoes(model);
-            return "tentativas/form";
-        }
-        service.salvar(tentativa, usuarioId, licaoId);
-        ra.addFlashAttribute("sucesso", "Tentativa salva.");
-        return "redirect:/tentativas";
+    public ResponseEntity<TentativaDto.Response> criar(@Valid @RequestBody TentativaDto.Request req) {
+        validarAcertos(req);
+        Tentativa t = new Tentativa();
+        req.aplicarEm(t);
+        Tentativa salva = service.salvar(t, req.usuarioId(), req.licaoId());
+        return Respostas.criado(salva.getId(), TentativaDto.Response.de(salva));
     }
 
-    @PostMapping("/{id}/excluir")
-    public String excluir(@PathVariable Long id, RedirectAttributes ra) {
+    @PutMapping("/{id}")
+    public TentativaDto.Response atualizar(@PathVariable Long id, @Valid @RequestBody TentativaDto.Request req) {
+        validarAcertos(req);
+        Tentativa t = service.buscar(id);
+        req.aplicarEm(t);
+        return TentativaDto.Response.de(service.salvar(t, req.usuarioId(), req.licaoId()));
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void excluir(@PathVariable Long id) {
         service.excluir(id);
-        ra.addFlashAttribute("sucesso", "Tentativa excluída.");
-        return "redirect:/tentativas";
+    }
+
+    private static void validarAcertos(TentativaDto.Request req) {
+        if (req.acertos() > req.totalPerguntas()) {
+            throw new RegraNegocioException("Acertos não pode passar do total de perguntas");
+        }
     }
 }

@@ -1,103 +1,55 @@
 package br.com.granacerta.controller;
 
+import br.com.granacerta.dto.TransacaoDto;
 import br.com.granacerta.model.Transacao;
-import br.com.granacerta.service.CategoriaService;
-import br.com.granacerta.service.MetaService;
 import br.com.granacerta.service.TransacaoService;
-import br.com.granacerta.service.UsuarioService;
 import jakarta.validation.Valid;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-@Controller
-@RequestMapping("/transacoes")
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/transacoes")
 public class TransacaoController {
 
     private final TransacaoService service;
-    private final UsuarioService usuarios;
-    private final CategoriaService categorias;
-    private final MetaService metas;
 
-    public TransacaoController(TransacaoService service, UsuarioService usuarios,
-                               CategoriaService categorias, MetaService metas) {
+    public TransacaoController(TransacaoService service) {
         this.service = service;
-        this.usuarios = usuarios;
-        this.categorias = categorias;
-        this.metas = metas;
     }
 
-    private void opcoes(Model model) {
-        model.addAttribute("usuarios", usuarios.listar());
-        model.addAttribute("categorias", categorias.listar());
-        model.addAttribute("metas", metas.listar());
-    }
-
+    /** Filtro opcional: ?usuarioId= */
     @GetMapping
-    public String listar(@RequestParam(required = false) Long usuarioId, Model model) {
-        model.addAttribute("transacoes", usuarioId == null ? service.listar() : service.listarPorUsuario(usuarioId));
-        model.addAttribute("usuarios", usuarios.listar());
-        model.addAttribute("usuarioId", usuarioId);
-        return "transacoes/lista";
+    public List<TransacaoDto.Response> listar(@RequestParam(required = false) Long usuarioId) {
+        List<Transacao> lista = usuarioId == null ? service.listar() : service.listarPorUsuario(usuarioId);
+        return lista.stream().map(TransacaoDto.Response::de).toList();
     }
 
-    @GetMapping("/novo")
-    public String novo(@RequestParam(required = false) Long usuarioId,
-                       @RequestParam(required = false) Long metaId, Model model) {
-        model.addAttribute("transacao", new Transacao());
-        model.addAttribute("usuarioId", usuarioId);
-        model.addAttribute("categoriaId", null);
-        model.addAttribute("metaId", metaId);
-        opcoes(model);
-        return "transacoes/form";
-    }
-
-    @GetMapping("/{id}/editar")
-    public String editar(@PathVariable Long id, Model model) {
-        Transacao t = service.buscar(id);
-        model.addAttribute("transacao", t);
-        model.addAttribute("usuarioId", t.getUsuario().getId());
-        model.addAttribute("categoriaId", t.getCategoria().getId());
-        model.addAttribute("metaId", t.getMeta() != null ? t.getMeta().getId() : null);
-        opcoes(model);
-        return "transacoes/form";
+    @GetMapping("/{id}")
+    public TransacaoDto.Response buscar(@PathVariable Long id) {
+        return TransacaoDto.Response.de(service.buscar(id));
     }
 
     @PostMapping
-    public String salvar(@Valid @ModelAttribute("transacao") Transacao transacao, BindingResult br,
-                         @RequestParam(required = false) Long usuarioId,
-                         @RequestParam(required = false) Long categoriaId,
-                         @RequestParam(required = false) Long metaId,
-                         @RequestParam(required = false) String voltarPara,
-                         Model model, RedirectAttributes ra) {
-        if (usuarioId == null) br.reject("usuario", "Escolha o usuário");
-        if (categoriaId == null) br.reject("categoria", "Escolha a categoria");
-        if (br.hasErrors()) {
-            model.addAttribute("usuarioId", usuarioId);
-            model.addAttribute("categoriaId", categoriaId);
-            model.addAttribute("metaId", metaId);
-            opcoes(model);
-            return "transacoes/form";
-        }
-        service.salvar(transacao, usuarioId, categoriaId, metaId);
-        ra.addFlashAttribute("sucesso", "Transação \"" + transacao.getDescricao() + "\" salva.");
-        return "redirect:" + destinoSeguro(voltarPara, "/transacoes");
+    public ResponseEntity<TransacaoDto.Response> criar(@Valid @RequestBody TransacaoDto.Request req) {
+        Transacao t = new Transacao();
+        req.aplicarEm(t);
+        Transacao salva = service.salvar(t, req.usuarioId(), req.categoriaId(), req.metaId());
+        return Respostas.criado(salva.getId(), TransacaoDto.Response.de(salva));
     }
 
-    @PostMapping("/{id}/excluir")
-    public String excluir(@PathVariable Long id, @RequestParam(required = false) String voltarPara, RedirectAttributes ra) {
+    @PutMapping("/{id}")
+    public TransacaoDto.Response atualizar(@PathVariable Long id, @Valid @RequestBody TransacaoDto.Request req) {
+        Transacao t = service.buscar(id);
+        req.aplicarEm(t);
+        return TransacaoDto.Response.de(service.salvar(t, req.usuarioId(), req.categoriaId(), req.metaId()));
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void excluir(@PathVariable Long id) {
         service.excluir(id);
-        ra.addFlashAttribute("sucesso", "Transação excluída.");
-        return "redirect:" + destinoSeguro(voltarPara, "/transacoes");
-    }
-
-    /** Só aceita caminhos internos para evitar redirecionamento aberto. */
-    static String destinoSeguro(String destino, String padrao) {
-        if (destino != null && destino.startsWith("/") && !destino.startsWith("//") && !destino.contains("\\")) {
-            return destino;
-        }
-        return padrao;
     }
 }

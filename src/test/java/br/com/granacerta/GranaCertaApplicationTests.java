@@ -2,24 +2,28 @@ package br.com.granacerta;
 
 import br.com.granacerta.repository.*;
 import br.com.granacerta.service.SimuladorService;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("h2")
 class GranaCertaApplicationTests {
+
+    private static final MediaType JSON = MediaType.APPLICATION_JSON;
 
     @Autowired MockMvc mvc;
     @Autowired UsuarioRepository usuarios;
@@ -31,8 +35,18 @@ class GranaCertaApplicationTests {
     @Autowired TentativaRepository tentativas;
     @Autowired SimuladorService simulador;
 
+    private static long idDe(MvcResult r) throws Exception {
+        return ((Number) JsonPath.read(r.getResponse().getContentAsString(), "$.id")).longValue();
+    }
+
+    private static String usuarioJson(String nome, String email) {
+        return """
+                {"nome": "%s", "email": "%s", "dataNascimento": "2008-01-01", "rendaMensal": 500, "avatar": "🐸"}
+                """.formatted(nome, email);
+    }
+
     @Test
-    void todasAsPaginasAbrem() throws Exception {
+    void todosOsEndpointsDeLeituraRespondem() throws Exception {
         Long u = usuarios.findAll().get(0).getId();
         Long c = categorias.findAll().get(0).getId();
         Long t = transacoes.findAll().get(0).getId();
@@ -42,61 +56,104 @@ class GranaCertaApplicationTests {
         Long te = tentativas.findAll().get(0).getId();
 
         String[] urls = {
-                "/", "/ranking", "/sobre",
-                "/usuarios", "/usuarios/novo", "/usuarios/" + u, "/usuarios/" + u + "/editar", "/usuarios/" + u + "?mes=2020-01",
-                "/categorias", "/categorias/novo", "/categorias/" + c + "/editar",
-                "/transacoes", "/transacoes?usuarioId=" + u, "/transacoes/novo", "/transacoes/" + t + "/editar",
-                "/metas", "/metas/novo", "/metas/" + m, "/metas/" + m + "/editar",
-                "/licoes", "/licoes/novo", "/licoes/" + l, "/licoes/" + l + "/editar",
-                "/perguntas", "/perguntas/novo", "/perguntas/" + p + "/editar",
-                "/tentativas", "/tentativas/novo", "/tentativas/" + te + "/editar",
-                "/quiz/" + l + "?usuarioId=" + u,
-                "/simuladores", "/simuladores/juros-compostos", "/simuladores/cartao-rotativo", "/simuladores/parcelado-ou-avista"
+                "/", "/api", "/api/ranking",
+                "/api/usuarios", "/api/usuarios/" + u,
+                "/api/usuarios/" + u + "/painel", "/api/usuarios/" + u + "/painel?mes=2020-01",
+                "/api/categorias", "/api/categorias/" + c,
+                "/api/transacoes", "/api/transacoes?usuarioId=" + u, "/api/transacoes/" + t,
+                "/api/metas", "/api/metas?usuarioId=" + u, "/api/metas/" + m,
+                "/api/licoes", "/api/licoes/" + l,
+                "/api/perguntas", "/api/perguntas?licaoId=" + l, "/api/perguntas/" + p,
+                "/api/tentativas", "/api/tentativas/" + te,
+                "/api/quiz/" + l,
+                "/api/simuladores", "/api/simuladores/juros-compostos",
+                "/api/simuladores/cartao-rotativo", "/api/simuladores/parcelado-ou-avista"
         };
         for (String url : urls) {
-            mvc.perform(get(url)).andExpect(status().isOk());
+            mvc.perform(get(url))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(JSON));
         }
-        mvc.perform(get("/usuarios/999999")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void errosViramProblemDetail() throws Exception {
+        mvc.perform(get("/api/usuarios/999999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").exists());
+        // id que não é número e mês mal formatado: 400, não 500
+        mvc.perform(get("/api/usuarios/abc")).andExpect(status().isBadRequest());
+        Long u = usuarios.findAll().get(0).getId();
+        mvc.perform(get("/api/usuarios/" + u + "/painel?mes=abc")).andExpect(status().isBadRequest());
+        // JSON quebrado
+        mvc.perform(post("/api/usuarios").contentType(JSON).content("{nome:"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
     void crudDeUsuarioComValidacao() throws Exception {
-        // inválido: volta para o formulário
-        mvc.perform(post("/usuarios").param("nome", "").param("email", "x"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("usuarios/form"));
+        // inválido: 400 com a mensagem de cada campo
+        mvc.perform(post("/api/usuarios").contentType(JSON).content("{\"nome\": \"\", \"email\": \"x\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erros.nome").value("Informe o nome"))
+                .andExpect(jsonPath("$.erros.email").value("E-mail inválido"));
 
         long antes = usuarios.count();
-        mvc.perform(post("/usuarios")
-                        .param("nome", "Teste").param("email", "teste@x.com")
-                        .param("dataNascimento", "2008-01-01").param("rendaMensal", "500").param("avatar", "🐸"))
-                .andExpect(status().is3xxRedirection());
+        MvcResult criado = mvc.perform(post("/api/usuarios").contentType(JSON)
+                        .content(usuarioJson("Teste", "teste@x.com")))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists("Location"))
+                .andExpect(jsonPath("$.email").value("teste@x.com"))
+                .andReturn();
         assertThat(usuarios.count()).isEqualTo(antes + 1);
-
-        Long id = usuarios.findAll().stream().filter(x -> x.getEmail().equals("teste@x.com")).findFirst().orElseThrow().getId();
+        long id = idDe(criado);
 
         // e-mail duplicado
-        mvc.perform(post("/usuarios")
-                        .param("nome", "Outro").param("email", "teste@x.com")
-                        .param("dataNascimento", "2008-01-01").param("rendaMensal", "500"))
-                .andExpect(view().name("usuarios/form"));
+        mvc.perform(post("/api/usuarios").contentType(JSON).content(usuarioJson("Outro", "teste@x.com")))
+                .andExpect(status().isConflict());
 
-        // transação + meta ligadas ao usuário
-        Long cat = categorias.findAll().stream().filter(x -> x.getNome().startsWith("Poupan")).findFirst().orElseThrow().getId();
-        mvc.perform(post("/metas").param("usuarioId", id.toString()).param("titulo", "Bike")
-                        .param("valorAlvo", "800").param("prazo", "2030-01-01").param("emoji", "🚲"))
-                .andExpect(status().is3xxRedirection());
-        Long meta = metas.findAll().stream().filter(x -> x.getTitulo().equals("Bike")).findFirst().orElseThrow().getId();
-        mvc.perform(post("/transacoes").param("usuarioId", id.toString()).param("categoriaId", cat.toString())
-                        .param("metaId", meta.toString()).param("descricao", "Depósito").param("valor", "100")
-                        .param("data", "2026-01-10"))
-                .andExpect(status().is3xxRedirection());
-        mvc.perform(get("/metas/" + meta)).andExpect(status().isOk());
+        // atualizar (mantendo o próprio e-mail não conta como duplicado)
+        mvc.perform(put("/api/usuarios/" + id).contentType(JSON).content(usuarioJson("Teste 2", "teste@x.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Teste 2"));
+
+        // meta + depósito ligados ao usuário
+        Long cat = categorias.findAll().stream().filter(x -> x.getNome().startsWith("Poupan"))
+                .findFirst().orElseThrow().getId();
+        MvcResult metaRes = mvc.perform(post("/api/metas").contentType(JSON).content("""
+                        {"usuarioId": %d, "titulo": "Bike", "valorAlvo": 800, "prazo": "2030-01-01", "emoji": "🚲"}
+                        """.formatted(id)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long meta = idDe(metaRes);
+
+        mvc.perform(post("/api/transacoes").contentType(JSON).content("""
+                        {"usuarioId": %d, "categoriaId": %d, "metaId": %d,
+                         "descricao": "Depósito", "valor": 100, "data": "2026-01-10"}
+                        """.formatted(id, cat, meta)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.metaId").value((int) meta));
+
+        mvc.perform(get("/api/metas/" + meta))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.aportes.length()").value(1))
+                .andExpect(jsonPath("$.percentual").value(12));
 
         // excluir usuário remove os dados ligados (cascade)
-        mvc.perform(post("/usuarios/" + id + "/excluir")).andExpect(status().is3xxRedirection());
+        mvc.perform(delete("/api/usuarios/" + id)).andExpect(status().isNoContent());
         assertThat(usuarios.existsById(id)).isFalse();
         assertThat(metas.existsById(meta)).isFalse();
+        mvc.perform(get("/api/usuarios/" + id)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void atualizarRecursoInexistenteDa404SemCriarNada() throws Exception {
+        long antes = categorias.count();
+        mvc.perform(put("/api/categorias/999999").contentType(JSON).content("""
+                        {"nome": "Fantasma", "tipo": "DESPESA", "classificacao": "DESEJO"}
+                        """))
+                .andExpect(status().isNotFound());
+        assertThat(categorias.count()).isEqualTo(antes);
     }
 
     @Test
@@ -106,26 +163,62 @@ class GranaCertaApplicationTests {
         var ps = perguntas.findByLicaoIdOrderByIdAsc(licao.getId());
         long antes = tentativas.count();
 
-        var req = post("/quiz/" + licao.getId()).param("usuarioId", u.toString());
-        for (var p : ps) req = req.param("resposta_" + p.getId(), p.getCorreta());
-        mvc.perform(req).andExpect(status().isOk()).andExpect(view().name("quiz/resultado"));
+        // quem joga não recebe o gabarito
+        mvc.perform(get("/api/quiz/" + licao.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.perguntas.length()").value(ps.size()))
+                .andExpect(jsonPath("$.perguntas[0].correta").doesNotExist())
+                .andExpect(jsonPath("$.perguntas[0].alternativas.A").exists());
+
+        StringBuilder respostas = new StringBuilder();
+        for (var p : ps) {
+            if (respostas.length() > 0) respostas.append(',');
+            respostas.append('"').append(p.getId()).append("\": \"").append(p.getCorreta()).append('"');
+        }
+        mvc.perform(post("/api/quiz/" + licao.getId()).contentType(JSON)
+                        .content("{\"usuarioId\": " + u + ", \"respostas\": {" + respostas + "}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tentativa.acertos").value(ps.size()))
+                .andExpect(jsonPath("$.correcoes[0].acertou").value(true));
 
         assertThat(tentativas.count()).isEqualTo(antes + 1);
         var ultima = tentativas.findAllByOrderByDataHoraDesc().get(0);
         assertThat(ultima.getAcertos()).isEqualTo(ps.size());
+
+        // corpo sem os campos obrigatórios
+        mvc.perform(post("/api/quiz/" + licao.getId()).contentType(JSON).content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erros.usuarioId").exists());
     }
 
     @Test
-    void categoriaComTransacoesNaoPodeSerExcluida() throws Exception {
-        var cat = categorias.findAll().stream().filter(x -> x.getNome().equals("Transporte")).findFirst().orElseThrow();
-        mvc.perform(post("/categorias/" + cat.getId() + "/excluir"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(flash().attributeExists("erro"));
+    void regrasDeNegocio() throws Exception {
+        // categoria com transações não pode ser excluída
+        var cat = categorias.findAll().stream().filter(x -> x.getNome().equals("Transporte"))
+                .findFirst().orElseThrow();
+        mvc.perform(delete("/api/categorias/" + cat.getId()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").exists());
         assertThat(categorias.existsById(cat.getId())).isTrue();
+
+        // receita só pode ter classificação "Entrada"
+        mvc.perform(post("/api/categorias").contentType(JSON).content("""
+                        {"nome": "Errada", "tipo": "RECEITA", "classificacao": "DESEJO"}
+                        """))
+                .andExpect(status().isUnprocessableEntity());
+
+        // acertos não pode passar do total de perguntas
+        Long u = usuarios.findAll().get(0).getId();
+        Long l = licoes.findAll().get(0).getId();
+        mvc.perform(post("/api/tentativas").contentType(JSON).content("""
+                        {"usuarioId": %d, "licaoId": %d, "acertos": 5, "totalPerguntas": 3,
+                         "dataHora": "2026-01-10T10:30:00"}
+                        """.formatted(u, l)))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
-    void simuladores() {
+    void simuladores() throws Exception {
         // R$ 100 por 12 meses a 1% a.m. = 1268,25
         var r = simulador.jurosCompostos(BigDecimal.ZERO, new BigDecimal("100"), BigDecimal.ONE, 12);
         assertThat(r.saldoFinal()).isEqualByComparingTo("1268.25");
@@ -139,5 +232,14 @@ class GranaCertaApplicationTests {
         var parc = simulador.parcelamento(new BigDecimal("1000"), new BigDecimal("10"), 10, new BigDecimal("0.8"));
         assertThat(parc.taxaImplicitaMensalPct()).isBetween(new BigDecimal("1.90"), new BigDecimal("2.00"));
         assertThat(parc.melhorAVista()).isTrue();
+
+        // mesma conta pelo endpoint, que também devolve os parâmetros usados
+        mvc.perform(get("/api/simuladores/juros-compostos?inicial=0&mensal=100&taxa=1&meses=12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meses").value(12))
+                .andExpect(jsonPath("$.resultado.saldoFinal").value(1268.25));
+        // meses fora do limite é ajustado
+        mvc.perform(get("/api/simuladores/juros-compostos?meses=99999"))
+                .andExpect(jsonPath("$.meses").value(600));
     }
 }

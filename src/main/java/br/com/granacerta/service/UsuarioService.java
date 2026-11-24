@@ -25,9 +25,14 @@ public class UsuarioService extends CrudService<Usuario> {
     }
 
     public boolean emailEmUso(Usuario u) {
-        return u.getId() == null
-                ? usuarios.existsByEmailIgnoreCase(u.getEmail())
-                : usuarios.existsByEmailIgnoreCaseAndIdNot(u.getEmail(), u.getId());
+        return emailEmUso(u.getEmail(), u.getId());
+    }
+
+    /** {@code idIgnorado} é o usuário que está sendo editado (null ao cadastrar). */
+    public boolean emailEmUso(String email, Long idIgnorado) {
+        return idIgnorado == null
+                ? usuarios.existsByEmailIgnoreCase(email)
+                : usuarios.existsByEmailIgnoreCaseAndIdNot(email, idIgnorado);
     }
 
     @Override
